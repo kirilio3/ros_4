@@ -92,28 +92,26 @@ class AprilTagLEDNode(DTROS):
             tag_size=0.065  # Duckietown tag size
         )
         
-        # Process detected tags and update LEDs
+        # Mapping dictionary for tag IDs to LED colors and descriptions
+        tag_mapping = {
+            21: {"color": RED, "name": "RED", "description": "Stop Sign"},
+            59: {"color": BLUE, "name": "BLUE", "description": "T-Intersection"},
+            8: {"color": GREEN, "name": "GREEN", "description": "UofA Tag"},
+        }
+
         if tags:
             for tag in tags:
                 tag_id = tag.tag_id
-                # Map tag IDs to specific meanings (adjust IDs based on your setup)
-                if tag_id == 21:  # Stop Sign
-                    self.set_led_color(RED, "RED")
-                    rospy.logwarn(f"Detected Stop Sign (ID: {tag_id}) - LEDs set to RED")
-                elif tag_id == 59:  # T-Intersection 
-                    self.set_led_color(BLUE, "BLUE")
-                    rospy.logwarn(f"Detected T-Intersection (ID: {tag_id}) - LEDs set to BLUE")
-                elif tag_id == 8:  # UofA Tag
-                    self.set_led_color(GREEN, "GREEN")
-                    rospy.logwarn(f"Detected UofA Tag (ID: {tag_id}) - LEDs set to GREEN")
-                else:
-                    self.set_led_color(WHITE, "WHITE")
-                    rospy.logwarn(f"Unknown tag (ID: {tag_id}) - LEDs set to WHITE")
+                # Retrieve the settings for the detected tag, defaulting to WHITE if not found
+                tag_info = tag_mapping.get(tag_id, {"color": WHITE, "name": "WHITE", "description": "Unknown tag"})
+                self.set_led_color(tag_info["color"], tag_info["name"])
+                rospy.logwarn(f"Detected {tag_info['description']} (ID: {tag_id}) - LEDs set to {tag_info['name']}")
                 break  # Process only the first detected tag for simplicity
         else:
-            # No tags detected, set LEDs to white
+            # No tags detected; set LEDs to white
             self.set_led_color(WHITE, "WHITE")
             # rospy.loginfo("No AprilTags detected - LEDs set to WHITE")
+
 
     def set_led_color(self, color, color_name):
         """Helper function to set LED color"""

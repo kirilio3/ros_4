@@ -46,17 +46,29 @@ class CameraReaderNode(DTROS):
             rospy.logwarn("Waiting for camera calibration parameters...")
             return
         
-        # convert JPEG bytes to CV image
+        # Convert JPEG bytes to OpenCV image
         image = self._bridge.compressed_imgmsg_to_cv2(msg)
-        
+
         # Undistort the image using the camera calibration parameters
         undistorted_image = cv2.undistort(image, self._camera_matrix, self._distortion_coeffs)
         
-        # Resize the image to a fixed size
-        resized_image = cv2.resize(undistorted_image, (320, 240))
+        # Get image dimensions
+        height, width = undistorted_image.shape[:2]
         
-        # Apply Gaussian blur for smoothing
-        # blurred_image = cv2.GaussianBlur(resized_image, (9, 9), 0)
+        # Define the desired aspect ratio (width:height). For example, 4:3.
+        desired_aspect_ratio = 2.0 / 3.0
+        desired_width = int(height * desired_aspect_ratio)
+        
+        if desired_width < width:
+            # Calculate horizontal offset to center the crop
+            offset = (width - desired_width) // 2
+            cropped_image = undistorted_image[:, offset:offset+desired_width]
+        else:
+            # If the image is not wider than the desired aspect ratio, use the undistorted image as is.
+            cropped_image = undistorted_image
+
+        # Resize the cropped image to a fixed size (e.g., 100x100)
+        resized_image = cv2.resize(cropped_image, (100, 100))
         
         # Convert to black and white (grayscale)
         bw_image = cv2.cvtColor(resized_image, cv2.COLOR_BGR2GRAY)
@@ -66,6 +78,7 @@ class CameraReaderNode(DTROS):
 
         # Publish the processed image
         self.image_pub.publish(undistorted_msg)
+
 
 if __name__ == '__main__':
     # create the node
