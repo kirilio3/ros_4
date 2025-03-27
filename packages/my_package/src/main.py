@@ -31,7 +31,7 @@ class main(DTROS):
 
         ##############following functiinalities are added#####################
         self.LF = lf.Lane_Following(self.vehicle_name)
-        self.DC = dc.Detect_Corss(self.vehicle_name, None,None, debugger=False)
+        self.DC = dc.Detect_Corss(self.vehicle_name, None,None, debugger=True)
 
         self.distance = 2
         

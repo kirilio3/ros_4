@@ -13,20 +13,22 @@ import cv2
 import numpy as np
 from cv_bridge import CvBridge
 from dt_apriltags import Detector
-from mother_of_all import MotherOfAll
+import lane_following as lf
+import detect_cross as dc
+import time
 
 
 
 
-class Lane_Following(MotherOfAll):
-    
-    def __init__(self, vehicle_name, distortion_coeffs=None, camera_matrix=None):
+
+class I_HATE_THE_DUCKIEBOT_(DTROS):
+    def __init__(self, vehicle_name):
         self.vehicle_name = vehicle_name
         
         # Lane detection variables
         self.bridge = CvBridge()
-        self.camera_matrix = camera_matrix
-        self.distortion_coeffs = distortion_coeffs
+        self.camera_matrix = None
+        self.distortion_coeffs = None
 
         # Encoder variables
         self.last_left_ticks = None
@@ -39,7 +41,7 @@ class Lane_Following(MotherOfAll):
         self.WHEEL_RADIUS = 0.0318
         self.WHEEL_CIRC = 2.0 * math.pi * self.WHEEL_RADIUS
         self.BASELINE = 0.077
-        self.VELOCITY = 0.2
+        self.VELOCITY = 0.15
         self.OMEGA_SPEED = 2.5
         self.angular_vel = 2.6
         
@@ -75,10 +77,12 @@ class Lane_Following(MotherOfAll):
         self.sub_right_enc = rospy.Subscriber(self.right_encoder_topic, WheelEncoderStamped, self.cb_right_encoder)
         self.sub_camera = rospy.Subscriber(self.camera_topic, CompressedImage, self.cb_camera)
 
-        self.yellow_lower = np.array([20, 100, 100], np.uint8)
+        self.yellow_lower = np.array([25, 100, 100], np.uint8)
         self.yellow_upper = np.array([30, 255, 255], np.uint8)
         self.white_lower = np.array([0, 0, 200], np.uint8)
         self.white_upper = np.array([180, 30, 255], np.uint8)
+        self.detect_cross = False
+
 
 
     def cb_camera(self, msg):
@@ -115,8 +119,9 @@ class Lane_Following(MotherOfAll):
             self.yellow_lane_pub.publish(Float64(yellow_pos))
         if white_pos is not None:
             self.white_lane_pub.publish(Float64(white_pos))
-
-
+    
+    
+    
     def detect_lanes(self, image):
         # Convert the image to HSV color space
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -188,119 +193,3 @@ class Lane_Following(MotherOfAll):
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
 
         return yellow_pos, white_pos, image
-
-    def camera_info_setter(self, camera_matrix, distortion_coeffs):
-        self.camera_matrix = camera_matrix
-        self.distortion_coeffs = distortion_coeffs
-
-    def cb_left_encoder(self, msg):
-        current_ticks = msg.data
-        if self.last_left_ticks is None:
-            self.last_left_ticks = current_ticks
-            return
-        delta_ticks = current_ticks - self.last_left_ticks
-        if delta_ticks > self.TICKS_PER_REV / 2:
-            delta_ticks -= self.TICKS_PER_REV
-        elif delta_ticks < -self.TICKS_PER_REV / 2:
-            delta_ticks += self.TICKS_PER_REV
-        self.last_left_ticks = current_ticks
-        distance = (delta_ticks / float(self.TICKS_PER_REV)) * self.WHEEL_CIRC
-        self._left_distance_traveled += distance
-
-    def cb_right_encoder(self, msg):
-        current_ticks = msg.data
-        if self.last_right_ticks is None:
-            self.last_right_ticks = current_ticks
-            return
-        delta_ticks = current_ticks - self.last_right_ticks
-        if delta_ticks > self.TICKS_PER_REV / 2:
-            delta_ticks -= self.TICKS_PER_REV
-        elif delta_ticks < -self.TICKS_PER_REV / 2:
-            delta_ticks += self.TICKS_PER_REV
-        self.last_right_ticks = current_ticks
-        distance = (delta_ticks / float(self.TICKS_PER_REV)) * self.WHEEL_CIRC
-        self._right_distance_traveled += distance
-    
-    def stop(self):
-        msg = Twist2DStamped(v=0.0, omega=0.0)
-        self.pub_cmd.publish(msg)
-
-
-    def pid_control(self,error):
-        current_time = rospy.get_time()
-        dt = current_time - self.prev_time if self.prev_time is not None and current_time > self.prev_time else 0.001
-        self.integral += error * dt
-        error_derivative = (error - self.prev_error) / dt if dt > 0 else 0.0
-        omega = (self.KP * error) + (self.KI * self.integral) + (self.KD * error_derivative)
-        # rospy.loginfo(f"Error: {error}, Integral: {self.integral}, Derivative: {error_derivative}, Omega: {omega}")
-        omega = max(min(omega, self.OMEGA_SPEED), -self.OMEGA_SPEED)
-        cmd = Twist2DStamped(v=self.VELOCITY, omega=omega)
-        self.pub_cmd.publish(cmd)
-        self.prev_error = error
-        self.prev_time = current_time
-
-    def lane_follow(self, distance,rate=20):
-        # while (True):
-        #     pass
-        rospy.loginfo("Starting lane following for {distance} meters with PID control...")
-        
-        rate = rospy.Rate(rate)  # 20 Hz
-        self.prev_time = rospy.get_time()
-        
-        # while not rospy.is_shutdown():
-        avg_distance = (self._left_distance_traveled + self._right_distance_traveled) / 2
- 
-        while not rospy.is_shutdown(): 
-            try:
-                detected = rospy.wait_for_message(f"{self.vehicle_name}/corss_line_detect",Float64,timeout=1.0)
-                rospy.loginfo(f"Cross line detected: {detected.data}")
-                if detected.data:
-                    raise self.getStopException("Cross line detected")  
-                if avg_distance >= distance:
-                    self.stop()
-                    rospy.loginfo("Target distance reached!")
-                    return True
-
-                try:
-                    yellow_msg = rospy.wait_for_message(f"/{self.vehicle_name}/yellow_lane", Float64, timeout=1.0)
-                    white_msg = rospy.wait_for_message(f"/{self.vehicle_name}/white_lane", Float64, timeout=1.0)
-                    # yellow_value, white_value = self.update_lane_centers(yellow_msg.data, white_msg.data)
-                    # print(yellow_value, white_value)
-                except rospy.ROSException as e:
-                    rospy.logwarn(f"Failed to get lane messages: {e}")
-                    yellow_msg = None
-                    white_msg = None
-                
-                
-                if yellow_msg is not None and white_msg is not None:
-                    lane_center = (yellow_msg.data + white_msg.data) / 2
-                    image_center = 320  # Assuming 640x480 image
-                    error = image_center - lane_center
-                    self.pid_control(error)
-                else:
-                    # If lanes not detected, go straight slowly
-                    cmd = Twist2DStamped(v=self.VELOCITY/1.5 , omega=self.OMEGA_SPEED*2)
-                    self.pub_cmd.publish(cmd)
-                    rospy.logwarn("Lanes not detected, moving straight slowly")
-                    
-                rate.sleep()
-            except self.getStopException as e:
-                rospy.loginfo(e)
-                self.stop()
-                while True:
-                    try:
-                        pedestrian_detected = rospy.wait_for_message(f"/{self.vehicle_name}/pedestrian_detect",Float64,timeout=2.0)
-                        if not pedestrian_detected.data:
-                            break
-                    except: 
-                        break
-                cmd = Twist2DStamped(v=self.VELOCITY , omega=0)
-                self.pub_cmd.publish(cmd)
-                rospy.sleep(1)
-
-    # def stop_with_cond(self, condition:bool, time):
-    #     if condition:
-    #         self.stop()
-    #         rospy.loginfo(f"stop for {time} sec")
-    #         rospy.sleep(time)
-            
