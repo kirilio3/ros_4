@@ -39,7 +39,7 @@ class Lane_Following(MotherOfAll):
         self.WHEEL_RADIUS = 0.0318
         self.WHEEL_CIRC = 2.0 * math.pi * self.WHEEL_RADIUS
         self.BASELINE = 0.077
-        self.VELOCITY = 0.2
+        self.VELOCITY = 0.15
         self.OMEGA_SPEED = 2.5
         self.angular_vel = 2.6
         
@@ -75,11 +75,11 @@ class Lane_Following(MotherOfAll):
         self.sub_right_enc = rospy.Subscriber(self.right_encoder_topic, WheelEncoderStamped, self.cb_right_encoder)
         self.sub_camera = rospy.Subscriber(self.camera_topic, CompressedImage, self.cb_camera)
 
-        self.yellow_lower = np.array([20, 100, 100], np.uint8)
+        self.yellow_lower = np.array([25, 100, 100], np.uint8)
         self.yellow_upper = np.array([30, 255, 255], np.uint8)
         self.white_lower = np.array([0, 0, 200], np.uint8)
         self.white_upper = np.array([180, 30, 255], np.uint8)
-
+        self.detect_cross = False
 
 
     def cb_camera(self, msg):
@@ -246,15 +246,14 @@ class Lane_Following(MotherOfAll):
         rospy.loginfo("Starting lane following for {distance} meters with PID control...")
         
         rate = rospy.Rate(rate)  # 20 Hz
-        self.prev_time = rospy.get_time()
-        
-        # while not rospy.is_shutdown():
-        avg_distance = (self._left_distance_traveled + self._right_distance_traveled) / 2
  
         while not rospy.is_shutdown(): 
+            self.prev_time = rospy.get_time()
+            # while not rospy.is_shutdown():
+            avg_distance = (self._left_distance_traveled + self._right_distance_traveled) / 2
             try:
                 detected = rospy.wait_for_message(f"{self.vehicle_name}/corss_line_detect",Float64,timeout=1.0)
-                rospy.loginfo(f"Cross line detected: {detected.data}")
+                # rospy.loginfo(f"Cross line detected: {detected.data}")
                 if detected.data:
                     raise self.getStopException("Cross line detected")  
                 if avg_distance >= distance:
@@ -287,15 +286,21 @@ class Lane_Following(MotherOfAll):
                 rate.sleep()
             except self.getStopException as e:
                 rospy.loginfo(e)
+                self.detect_cross = True
                 self.stop()
+                rospy.sleep(1)
                 while True:
                     try:
                         pedestrian_detected = rospy.wait_for_message(f"/{self.vehicle_name}/pedestrian_detect",Float64,timeout=2.0)
-                        if pedestrian_detected.data:
+                        if not pedestrian_detected.data:
+                            rospy.loginfo(f"no ped")
                             break
+                            
+                        rospy.loginfo(f"{pedestrian_detected.data}")
                     except: 
+                        rospy.loginfo("error happened ")
                         break
-                cmd = Twist2DStamped(v=self.VELOCITY , omega=0)
+                cmd = Twist2DStamped(v=self.VELOCITY , omega=-0.3)
                 self.pub_cmd.publish(cmd)
                 rospy.sleep(1)
 

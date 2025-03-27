@@ -30,7 +30,7 @@ class main(DTROS):
 
         ##############following functiinalities are added#####################
         self.LF = lf.Lane_Following(self.vehicle_name)
-        self.DC = dc.Detect_Corss(self.vehicle_name, None,None, debugger=True)
+        self.DC = dc.Detect_Corss(self.vehicle_name, None,None, debugger=False)
 
         self.distance = 2
         
@@ -62,6 +62,7 @@ class main(DTROS):
     
 
     def run(self):
+        rospy.sleep(1)
         rate = 20
         #rospy.spin()
         done = self.LF.lane_follow(10,rate)
@@ -69,6 +70,7 @@ class main(DTROS):
     def on_shutdown(self):
         self.LF.stop()
         super(main, self).on_shutdown()
+        sys.exit(0)
 
 
 

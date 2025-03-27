@@ -88,8 +88,6 @@ class Detect_Corss(MOA):
             
 
     def detect_corss(self, image):
-        total_con =0
-        numberOfCon = 0
         detected = False
         # Convert image to HSV for blue shape detection
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -103,59 +101,52 @@ class Detect_Corss(MOA):
 
         # Find contours from the mask
         contours, _ = cv2.findContours(blue_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-        
         
         height, width, _ = image.shape
-        
-        # Loop over each contour found
-        for contour in contours:
-            area = cv2.contourArea(contour)
-            if area > 1000:  # Check for significant contours
-                total_con += area
-                numberOfCon +=1
-                x, y, w, h = cv2.boundingRect(contour)
-                # Check that the bounding box is within image bounds
-                if y + h < height and x + w < width and x > 0 and y > 0 and area/numberOfCon >1000:
+
+        if contours:
+            # Find the largest contour based on area
+            max_contour = max(contours, key=cv2.contourArea)
+            area = cv2.contourArea(max_contour)
+            
+            if area > 2000:  # Check if the largest contour is significant
+                x, y, w, h = cv2.boundingRect(max_contour)
+                # Validate that the bounding box is within image bounds
+                if y + h < height and x + w < width and x > 0 and y > 0:
                     # Draw a red rectangle around the detected blue shape
                     cv2.rectangle(image, (x, y), (x + w, y + h), (0, 0, 255), 2)
-                    rospy.loginfo(area)
+                    
                     # Additional processing (e.g., distance calculation)
                     focal_length = 50  # Adjust based on your camera calibration
                     real_height_meters = 0.1  # Estimated height of the shape
                     pixel_height = h
 
-                    # self.detect_corss_reached = True
-                    # detected = True
-                    # self.corss_line_detect_pub.publish(Float64(1))
-                    # rospy.loginfo("corss detected, stopping the robot.")
                     if pixel_height > 0:
                         distance = abs((real_height_meters * focal_length) / pixel_height)
-                        # rospy.loginfo(distance)
-                        if distance < 0.2:  # If blue shape is close
+                        rospy.loginfo(distance)
+                        if distance < 0.1:  # If blue shape is close
                             self.detect_pedestrian(image)
                             self.detect_corss_reached = True
                             detected = True
                             self.corss_line_detect_pub.publish(Float64(1))
-                            if not self.has_pedestrian: 
+                            if not self.has_pedestrian:
                                 self.pedestrian_detect_pub.publish(Float64(0))
-                            rospy.loginfo("corss detected, stopping the robot.")
         
-        # If no contour met the condition, publish that no cross is detected.
+        # If no valid contour was found, publish that no cross is detected.
         if not detected:
             self.corss_line_detect_pub.publish(Float64(0))
             self.detect_corss_reached = False
-        
+
         return image  # Return the modified image
 
 
-    def detect_pedestrian(self,image):
 
+    def detect_pedestrian(self, image):
         detected = False
-        # Convert image to HSV for blue shape detection
+        # Convert image to HSV
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         
-        # Create a mask for the blue shape using your defined blue range
+        # Create a mask for the duck (pedestrian) using the defined color range
         duck_mask = cv2.inRange(hsv, self.duck_color_lower, self.duck_color_upper)
         
         # Dilate to fill gaps in the mask
@@ -164,27 +155,31 @@ class Detect_Corss(MOA):
 
         # Find contours from the mask
         contours, _ = cv2.findContours(duck_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-        
         
         height, width, _ = image.shape
         
-        # Loop over each contour found
-        for contour in contours:
-            area = cv2.contourArea(contour)
-            if area > 300:  # Check for significant contours
-                x, y, w, h = cv2.boundingRect(contour)
-                # Check that the bounding box is within image bounds
+        # Check if there are any contours
+        if contours:
+            # Find the maximum contour based on area
+            max_contour = max(contours, key=cv2.contourArea)
+            
+            # Only consider the contour if its area is above a threshold (e.g., 300)
+            if cv2.contourArea(max_contour) > 300:
+                x, y, w, h = cv2.boundingRect(max_contour)
+                # Ensure the bounding box is within the image bounds
                 if y + h < height and x + w < width and x > 0 and y > 0:
-                    # Draw a red rectangle around the detected blue shape
-                    cv2.rectangle(image, (x, y), (x + w, y + h), (0, 0, 255), 2)
+                    # Optionally, draw a rectangle for visualization
+                    # cv2.rectangle(image, (x, y), (x + w, y + h), (0, 0, 255), 2)
+                    
                     self.has_pedestrian = True
                     self.pedestrian_detect_pub.publish(Float64(1))
+                    detected = True
 
-
-
+        if not detected:
+            self.has_pedestrian = False
+            self.pedestrian_detect_pub.publish(Float64(0))
         
-        return image  # Return the modified image
+        return image
 
     def reached_corss_getter(self):
         return self.detect_corss_reached
