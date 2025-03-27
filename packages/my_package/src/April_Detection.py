@@ -111,14 +111,6 @@ class CameraReaderNode(DTROS):
             cv2.putText(output_image, str(tag.tag_id), tag_center, 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
-            # tag_id_pos = (int(tag.corners[0][0]), int(tag.corners[0][1] - 10))
-            # cv2.putText(output_image, str(tag.tag_id), tag_id_pos, 
-            #            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-            
-            # Log detected tag info including pose
-            # rospy.loginfo(f"Detected AprilTag ID: {tag.tag_id} at center ({tag.center[0]:.2f}, {tag.center[1]:.2f})")
-            # if tag.pose_R is not None and tag.pose_t is not None:
-            #     rospy.loginfo(f"Pose: Translation {tag.pose_t.flatten()}, Rotation {tag.pose_R.flatten()}")
 
         # Convert the processed image back to a ROS CompressedImage message
         processed_msg = self._bridge.cv2_to_compressed_imgmsg(output_image)
