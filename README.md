@@ -19,12 +19,16 @@ Steps 1.2 and 1.3 of the assignment were combined in the April_Detection.py whic
 
 Part 1.4 which was completed in Sign_Led.py and can be ran with "sign-led" launcher had a task of changing the Duckiebot's LEDs based on the detected Apriltag: red for a Stop Sign, blue for a T-Intersection, green for a UofA Tag, and white as the default state for no detection. The LEDs were to change as soon as a detection was made. All of that was done as requested.
 
-Part 1.5:
+Part 1.5: makeing the bot following the lane while detecting the apriltag. If the bot sees a red line it will stop for few seconds in front of it before it keeps going. The pausing second was determined by the apriltag it sees. 
+1. stop sign for 3 second
+2. cross sign for 2 second
+3. UofA sign for 1 second
+4. 0.5 second if no sign was seen
 
-
+to run this code simply run "dts devel run -R csc22911 -L p-april"
 
 ### 2. PeDuckstrian Crosswalks
-
+In this part, our bot will detect the cross-road and stop in front of it for one second if nothing is in the cross-road. However, if there are peDuckstrains it will not move until the peDuckstrains cross the road. The part was built with three files that are detect_cross.py, lane_following.py and main.py. The Detect_corss will detect the cross-road and peDuckstrains, the lane_following.py handles lane_following, and the main.py is for all the basic setup. To run this part, simply run "dts devel run -R csc22911 -L main" and it will handle everything from there. 
 
 
 ### 3. Safe Navigation
