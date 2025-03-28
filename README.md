@@ -31,6 +31,8 @@ Part 1.5:
 
 In this part we were tasked to handle hazards on the road, specifically a broken-down Duckiebot. The scenario involved approaching the broken bot from the rear at a distance of approximately 30 cm. We needed to detect the broken-down bot and explain our detection method (which we did in the report), including any other methods we tried. Upon detection, the robot was to pause to assess the situation by stopping at a "safe distance" for 3 seconds. Following this pause, we had to implement a method to maneuver around the broken-down bot by turning into the opposing lane, ensuring no contact was made. After successfully passing, the Duckiebot should transition back into the proper lane and continue driving for about 30 cm. 
 
+This task was completed in maneuver.py and can be called with 'maneuver' launcher.
+
 Dependency:
 `dependencies-py3.txt` (dt_apriltagsy).
 
