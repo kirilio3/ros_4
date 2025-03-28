@@ -20,8 +20,6 @@ class CameraReaderNode(DTROS):
         self._camera_topic = f"/{self._vehicle_name}/camera_node/image/compressed"
         self._camera_info_topic = f"/{self._vehicle_name}/camera_node/camera_info"
         self._undistorted_topic = f"/{self._vehicle_name}/camera_node/image/distorted_image/compressed"
-        # New topic for augmented image with AprilTag detections
-        self._apriltag_topic = f"/{self._vehicle_name}/camera_node/image/apriltag_detections/compressed"
 
         # bridge between OpenCV and ROS
         self._bridge = CvBridge()
@@ -51,9 +49,6 @@ class CameraReaderNode(DTROS):
         # Publisher for the processed image with AprilTag detections
         self.image_pub = rospy.Publisher(self._undistorted_topic, CompressedImage, queue_size=10)
         
-        # New publisher for the augmented image with AprilTag detections
-        self.apriltag_pub = rospy.Publisher(self._apriltag_topic, CompressedImage, queue_size=10)
-
     def camera_info_callback(self, msg):
         # Extract camera matrix (K) and distortion coefficients (D)
         self._camera_matrix = np.array(msg.K).reshape(3, 3)
@@ -69,9 +64,6 @@ class CameraReaderNode(DTROS):
         
         # Undistort the image using the camera calibration parameters
         undistorted_image = cv2.undistort(image, self._camera_matrix, self._distortion_coeffs)
-        
-        # Resize the image to a fixed size
-        # resized_image = cv2.resize(undistorted_image, (320, 240))
         
         # Convert to black and white (grayscale)
         bw_image = cv2.cvtColor(undistorted_image, cv2.COLOR_BGR2GRAY)
@@ -111,15 +103,17 @@ class CameraReaderNode(DTROS):
             cv2.putText(output_image, str(tag.tag_id), tag_center, 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
+        ####################################################################
+
+        ############################ Part 1.3.d ############################
 
         # Convert the processed image back to a ROS CompressedImage message
         processed_msg = self._bridge.cv2_to_compressed_imgmsg(output_image)
 
         # Publish the processed image with AprilTag detections
         self.image_pub.publish(processed_msg)
+        ####################################################################
 
-        # Part 1.3.d: Publish the augmented image with AprilTag detections to the new topic
-        self.apriltag_pub.publish(processed_msg)
 
 if __name__ == '__main__':
     # create the node
