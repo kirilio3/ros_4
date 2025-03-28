@@ -34,5 +34,5 @@ In this part we were tasked to handle hazards on the road, specifically a broken
 This task was completed in maneuver.py and can be called with 'maneuver' launcher.
 
 Dependency:
-`dependencies-py3.txt` (dt_apriltagsy).
+`dependencies-py3.txt` (dt_apriltags).
 
