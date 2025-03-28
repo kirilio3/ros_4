@@ -34,8 +34,8 @@ class Detect_Corss(MOA):
         # Publishers
 
         self.image_pub = rospy.Publisher(f"/{self.vehicle_name}/camera_node/image/distorted_image/compressed", CompressedImage, queue_size=10)
-        self.corss_line_detect_pub = rospy.Publisher(f"/{self.vehicle_name}/corss_line_detect", Float64, queue_size=1)
-        self.pedestrian_detect_pub = rospy.Publisher(f"/{self.vehicle_name}/pedestrian_detect", Float64, queue_size=1)
+        self.corss_line_detect_pub = rospy.Publisher(f"/{self.vehicle_name}/corss_line_detect", Float64, queue_size=10)
+        self.pedestrian_detect_pub = rospy.Publisher(f"/{self.vehicle_name}/pedestrian_detect", Float64, queue_size=10)
 
         # Subscribers
 
@@ -81,6 +81,7 @@ class Detect_Corss(MOA):
         # Detect lanes and mark centers on the cropped image
         # yellow_pos, white_pos, processed_image = self.detect_lanes(cropped_image)
         image = self.detect_corss(cropped_image)
+        # image = self.detect_pedestrian(cropped_image)
         distorted_msg = self.bridge.cv2_to_compressed_imgmsg(image)
         if self.debug: self.debugger(distorted_msg)
         
@@ -98,11 +99,11 @@ class Detect_Corss(MOA):
         blue_mask1 = cv2.inRange(hsv, self.cross_blue_lower, self.cross_blue_upper)
         
         # Dilate to fill gaps in the mask
-        kernel = np.ones((5, 5), np.uint8)
-        blue_mask = cv2.dilate(blue_mask1, kernel, iterations=2)
+        # kernel = np.ones((5, 5), np.uint8)
+        # blue_mask = cv2.dilate(blue_mask1, kernel, iterations=2)
 
         # Find contours from the mask
-        contours, _ = cv2.findContours(blue_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv2.findContours(blue_mask1, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         
         
@@ -131,15 +132,16 @@ class Detect_Corss(MOA):
                     # rospy.loginfo("corss detected, stopping the robot.")
                     if pixel_height > 0:
                         distance = abs((real_height_meters * focal_length) / pixel_height)
-                        # rospy.loginfo(distance)
-                        if distance < 0.1:  # If blue shape is close
-                            self.detect_pedestrian(image)
+                        rospy.loginfo(distance)
+                        self.detect_pedestrian(image)
+                        if distance < 0.12:  # If blue shape is close
+                            # self.detect_pedestrian(image)
                             self.detect_corss_reached = True
                             detected = True
                             self.corss_line_detect_pub.publish(Float64(1))
-                            if not self.has_pedestrian: 
-                                self.pedestrian_detect_pub.publish(Float64(0))
-                            rospy.loginfo("corss detected, stopping the robot.")
+                            # if not self.has_pedestrian: 
+                            #     self.pedestrian_detect_pub.publish(Float64(0))
+                            # rospy.loginfo("corss detected, stopping the robot.")
         
         # If no contour met the condition, publish that no cross is detected.
         if not detected:
@@ -159,8 +161,8 @@ class Detect_Corss(MOA):
         duck_mask = cv2.inRange(hsv, self.duck_color_lower, self.duck_color_upper)
         
         # Dilate to fill gaps in the mask
-        kernel = np.ones((5, 5), np.uint8)
-        duck_mask = cv2.dilate(duck_mask, kernel, iterations=2)
+        # kernel = np.ones((5, 5), np.uint8)
+        # duck_mask = cv2.dilate(duck_mask, kernel, iterations=2)
 
         # Find contours from the mask
         contours, _ = cv2.findContours(duck_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -170,16 +172,24 @@ class Detect_Corss(MOA):
         height, width, _ = image.shape
         
         # Loop over each contour found
-        for contour in contours:
-            area = cv2.contourArea(contour)
-            if area > 300:  # Check for significant contours
-                x, y, w, h = cv2.boundingRect(contour)
-                # Check that the bounding box is within image bounds
-                if y + h < height and x + w < width and x > 0 and y > 0:
-                    # Draw a red rectangle around the detected blue shape
-                    cv2.rectangle(image, (x, y), (x + w, y + h), (0, 0, 255), 2)
-                    self.has_pedestrian = True
-                    self.pedestrian_detect_pub.publish(Float64(1))
+        if contours is not None:
+            for contour in contours:
+                area = cv2.contourArea(contour)
+                if area > 300:  # Check for significant contours
+                    x, y, w, h = cv2.boundingRect(contour)
+                    # Check that the bounding box is within image bounds
+                    if y + h < height and x + w < width and x > 0 and y > 0:
+                        # Draw a red rectangle around the detected blue shape
+                        cv2.rectangle(image, (x, y), (x + w, y + h), (0, 0, 255), 2)
+                        self.has_pedestrian = True
+                        self.pedestrian_detect_pub.publish(Float64(1))
+                        rospy.loginfo("yes _ped")
+                        return image
+            self.pedestrian_detect_pub.publish(Float64(0))
+            rospy.loginfo("no_ped")
+        else:
+
+            self.pedestrian_detect_pub.publish(Float64(0))
 
 
 

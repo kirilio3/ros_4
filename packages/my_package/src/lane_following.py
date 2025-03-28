@@ -14,6 +14,7 @@ import numpy as np
 from cv_bridge import CvBridge
 from dt_apriltags import Detector
 from mother_of_all import MotherOfAll
+import time
 
 
 
@@ -44,7 +45,7 @@ class Lane_Following(MotherOfAll):
         self.angular_vel = 2.6
         
         # Control parameters
-        self.KP = 0.025  # Proportional gain
+        self.KP = 0.015  # Proportional gain
         self.KI = 0.0001  # Integral gain
         self.KD = 0.01    # Derivative gain
         self.TARGET_DISTANCE = 20  # meters
@@ -80,6 +81,7 @@ class Lane_Following(MotherOfAll):
         self.white_lower = np.array([0, 0, 200], np.uint8)
         self.white_upper = np.array([180, 30, 255], np.uint8)
 
+        self.cross_detected = 0
 
     def cb_camera(self, msg):
         if self.camera_matrix is None or self.distortion_coeffs is None:
@@ -253,7 +255,7 @@ class Lane_Following(MotherOfAll):
         while not rospy.is_shutdown(): 
             try:
                 detected = rospy.wait_for_message(f"{self.vehicle_name}/corss_line_detect",Float64,timeout=1.0)
-                rospy.loginfo(f"Cross line detected: {detected.data}")
+                # rospy.loginfo(f"Cross line detected: {detected.data}")
                 if detected.data:
                     raise self.getStopException("Cross line detected")  
                 if avg_distance >= distance:
@@ -285,18 +287,30 @@ class Lane_Following(MotherOfAll):
                     
                 rate.sleep()
             except self.getStopException as e:
-                rospy.loginfo(e)
+                # rospy.loginfo(e)
                 self.stop()
+                # current  = rospy.get_time()
+                # future_time = rospy.get_time()
+                # while current - future_time < 1:
+                #     current = rospy.get_time()
+                # rospy.sleep(1)
+                # if not self.cross_detected % 2:
+                #     self.stop()
+                #     rospy.sleep(1)
+                
                 while True:
                     try:
-                        pedestrian_detected = rospy.wait_for_message(f"/{self.vehicle_name}/pedestrian_detect",Float64,timeout=2.0)
+                        pedestrian_detected = rospy.wait_for_message(f"/{self.vehicle_name}/pedestrian_detect",Float64,timeout=5.0)
                         if not pedestrian_detected.data:
+                            rospy.loginfo(" no1")
                             break
-                    except: 
-                        break
+                        rospy.loginfo("duck duck")
+                    except:
+                        rospy.loginfo(" waiting ")
+                        # break
                 cmd = Twist2DStamped(v=self.VELOCITY , omega=0)
                 self.pub_cmd.publish(cmd)
-                rospy.sleep(1)
+                rospy.sleep(2)
 
     # def stop_with_cond(self, condition:bool, time):
     #     if condition:
